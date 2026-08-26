@@ -722,6 +722,15 @@ export default function Home() {
 
         {/* Drawer Footer Actions */}
         <div className="p-6 border-t border-white/10 space-y-3 bg-[#0e0e10]">
+          <a
+            href="/login"
+            onClick={() => setIsSidebarOpen(false)}
+            className="w-full py-2.5 px-4 bg-[#141414] hover:bg-[#0086C3] text-white font-bold text-sm rounded-md tracking-[-0.01em] flex items-center justify-center gap-2 cursor-pointer transition-colors no-underline border border-white/10"
+          >
+            <i className="fa-solid fa-arrow-right-to-bracket text-xs" />
+            <span>Try Login Demo</span>
+          </a>
+
           <button
             onClick={() => {
               setIsSidebarOpen(false);
