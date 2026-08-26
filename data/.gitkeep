@@ -1,0 +1,2 @@
+# This directory stores the MaxMind GeoIP database
+# Run scripts/download-geoip.ps1 or scripts/download-geoip.sh to populate

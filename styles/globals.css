@@ -1,0 +1,295 @@
+@import "tailwindcss";
+
+/* ========================================
+   MANROPE FONT-FACE DECLARATIONS
+   ======================================== */
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-thin.woff') format('woff'),
+       url('/fonts/manrope-thin.otf') format('opentype');
+  font-weight: 100 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-light.woff') format('woff'),
+       url('/fonts/manrope-light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-regular.woff') format('woff'),
+       url('/fonts/manrope-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-medium.woff') format('woff'),
+       url('/fonts/manrope-medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-semibold.woff') format('woff'),
+       url('/fonts/manrope-semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-bold.woff') format('woff'),
+       url('/fonts/manrope-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('/fonts/manrope-extrabold.woff') format('woff'),
+       url('/fonts/manrope-extrabold.otf') format('opentype');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ========================================
+   TAILWIND V4 THEME CONFIGURATION
+   ======================================== */
+
+@theme {
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Accent Color */
+  --color-accent: #0086C3;
+  --color-accent-hover: #0074a8;
+  --color-accent-light: rgba(0, 134, 195, 0.12);
+
+  /* Sand / Warm Palette */
+  --color-sand-50: #faf9f6;
+  --color-sand-100: #f5f3ef;
+  --color-sand-200: #ece9e2;
+  --color-sand-300: #ddd9cf;
+  --color-sand-400: #c4bfb3;
+  --color-sand-500: #96948f;
+  --color-sand-600: #6b6a65;
+  --color-sand-700: #4a4944;
+  --color-sand-800: #2a2926;
+  --color-sand-900: #141414;
+
+  /* Dark Palette */
+  --color-dark-bg: #121212;
+  --color-dark-card: #1c1c1f;
+  --color-dark-elevated: #242428;
+  --color-dark-border: rgba(255, 255, 255, 0.12);
+
+  /* Risk Level Accents */
+  --color-risk-low: #10b981;
+  --color-risk-medium: #f59e0b;
+  --color-risk-high: #ef4444;
+
+  /* Letter-spacing tokens */
+  --tracking-hero: -0.1em;       /* -10% for large display headings */
+  --tracking-subhead: -0.05em;   /* -5% for subheadlines */
+  --tracking-body: -0.01em;      /* -1% for body, buttons, and chips */
+  --tracking-normal: 0em;        /* 0 for micro copy and telemetry */
+}
+
+/* ========================================
+   BASE STYLES & OVERFLOW CONFIGURATION
+   ======================================== */
+
+@layer base {
+  html, body {
+    @apply font-sans antialiased;
+    background-color: var(--color-sand-200);
+    color: var(--color-sand-900);
+    letter-spacing: -0.01em;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  /* Custom Gray Styled Scrollbar for overflow-y */
+  ::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #e2ded5;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+  }
+
+  /* Firefox scrollbar styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af #e2ded5;
+  }
+
+  ::selection {
+    background: #0086C3;
+    color: #ffffff;
+  }
+
+  /* Reduced Opacity Neo-Grid Background Pattern */
+  .neo-grid {
+    background-image:
+      linear-gradient(to right, rgba(20, 20, 20, 0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(20, 20, 20, 0.025) 1px, transparent 1px);
+    background-size: 80px 80px;
+  }
+}
+
+/* ========================================
+   COMPONENT UTILITIES
+   ======================================== */
+
+@layer components {
+  /* Corner bracket decorations */
+  .bracket::before,
+  .bracket::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    pointer-events: none;
+  }
+
+  .bracket::before {
+    top: -2px;
+    left: -2px;
+    border-top: 1.5px solid rgba(0, 0, 0, 0.25);
+    border-left: 1.5px solid rgba(0, 0, 0, 0.25);
+  }
+
+  .bracket::after {
+    bottom: -2px;
+    right: -2px;
+    border-bottom: 1.5px solid rgba(0, 0, 0, 0.25);
+    border-right: 1.5px solid rgba(0, 0, 0, 0.25);
+  }
+
+  /* Dark console input styling */
+  .console-input::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  .console-input:focus {
+    outline: none;
+  }
+
+  /* Chip / pill hover */
+  .chip-hover {
+    transition: all 0.15s ease;
+  }
+  .chip-hover:hover {
+    background-color: rgba(20, 20, 20, 0.08);
+    border-color: rgba(20, 20, 20, 0.25);
+  }
+
+  /* Verify button lift */
+  .btn-lift {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+  .btn-lift:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  .btn-lift:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  /* Nav link hover with #0086C3 accent */
+  .nav-link {
+    transition: color 0.15s ease;
+  }
+  .nav-link:hover {
+    color: #0086C3;
+  }
+}
+
+/* ========================================
+   SCROLL REVEAL ANIMATIONS
+   Replaces GSAP ScrollTrigger with lightweight
+   CSS + IntersectionObserver for zero-lag,
+   zero-invisible-content reveals.
+   ======================================== */
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes heroFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Base state: hidden, waiting for IntersectionObserver */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(24px);
+  will-change: opacity, transform;
+}
+
+/* Triggered state: animate in */
+.reveal-on-scroll.revealed {
+  animation: revealUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Staggered children: use CSS custom property --reveal-delay */
+.reveal-on-scroll.revealed.stagger-1 { animation-delay: 0.06s; }
+.reveal-on-scroll.revealed.stagger-2 { animation-delay: 0.12s; }
+.reveal-on-scroll.revealed.stagger-3 { animation-delay: 0.18s; }
+.reveal-on-scroll.revealed.stagger-4 { animation-delay: 0.24s; }
+.reveal-on-scroll.revealed.stagger-5 { animation-delay: 0.30s; }
+.reveal-on-scroll.revealed.stagger-6 { animation-delay: 0.36s; }
+
+/* Hero entrance: immediate on load, staggered */
+.hero-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.hero-reveal.revealed {
+  animation: heroFadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.hero-reveal.hero-delay-1 { animation-delay: 0.05s; }
+.hero-reveal.hero-delay-2 { animation-delay: 0.15s; }
+.hero-reveal.hero-delay-3 { animation-delay: 0.25s; }
+.hero-reveal.hero-delay-4 { animation-delay: 0.35s; }
+.hero-reveal.hero-delay-5 { animation-delay: 0.45s; }
+.hero-reveal.hero-delay-6 { animation-delay: 0.55s; }
