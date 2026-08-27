@@ -9,6 +9,7 @@ import {
   captureSubmitTrust,
   resetBehavioralState,
 } from '@/lib/fingerprint/behavioral-dynamics';
+import { solvePow, generateChallenge } from '@/lib/crypto/pow-challenge';
 import { User } from '@supabase/supabase-js';
 
 interface EvaluationResult {
@@ -19,68 +20,13 @@ interface EvaluationResult {
   speedMs: number;
 }
 
-interface ScenarioPreset {
-  id: string;
-  name: string;
-  badge: string;
-  expectedOutcome: 'allow' | 'monitor' | 'challenge';
-  email: string;
-  ipAddress: string;
-  deviceFingerprint: string;
-  userAgent: string;
-}
-
-const DEMO_PRESETS: ScenarioPreset[] = [
-  {
-    id: 'normal',
-    name: 'Normal User',
-    badge: 'Instant Login',
-    expectedOutcome: 'allow',
-    email: 'alex@company.com',
-    ipAddress: '194.26.29.10',
-    deviceFingerprint: 'fp_alex_laptop',
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
-  },
-  {
-    id: 'new_device',
-    name: 'New Device',
-    badge: 'Silent Verify',
-    expectedOutcome: 'monitor',
-    email: 'alex@company.com',
-    ipAddress: '82.165.197.1',
-    deviceFingerprint: 'fp_alex_new_tablet',
-    userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_3 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
-  },
-  {
-    id: 'travel',
-    name: 'Unusual Location',
-    badge: 'Code Prompt',
-    expectedOutcome: 'challenge',
-    email: 'alex@company.com',
-    ipAddress: '133.242.18.9',
-    deviceFingerprint: 'fp_unrecognized_device',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0',
-  },
-  {
-    id: 'bot',
-    name: 'Bot Attempt',
-    badge: 'Blocked / Code Prompt',
-    expectedOutcome: 'challenge',
-    email: 'alex@company.com',
-    ipAddress: '34.192.10.5',
-    deviceFingerprint: 'fp_headless_bot',
-    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) HeadlessChrome/122.0.0.0 Safari/537.36 Puppeteer',
-  },
-];
-
 export default function LoginPage() {
   const [authTab, setAuthTab] = useState<'sign_in' | 'sign_up'>('sign_in');
-  const [email, setEmail] = useState('alex@company.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
-  const [activePreset, setActivePreset] = useState<ScenarioPreset>(DEMO_PRESETS[0]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
@@ -96,7 +42,7 @@ export default function LoginPage() {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
 
-  // Check active user session on load
+  // Check active user session on load & attach passive behavioral biometrics
   useEffect(() => {
     try {
       const supabase = getSupabaseBrowserClient();
@@ -106,24 +52,12 @@ export default function LoginPage() {
         }
       });
     } catch {}
-  }, []);
 
-  // Start/stop passive behavioral collection
-  useEffect(() => {
     startBehavioralCollection();
-    return () => stopBehavioralCollection();
+    return () => {
+      stopBehavioralCollection();
+    };
   }, []);
-
-  const handleSelectPreset = (preset: ScenarioPreset) => {
-    setActivePreset(preset);
-    setEmail(preset.email);
-    setPassword('password123');
-    setErrorMessage(null);
-    setSuccessNotice(null);
-    setViewState('form');
-    setOtpCode(['', '', '', '', '', '']);
-    resetBehavioralState();
-  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,23 +69,39 @@ export default function LoginPage() {
     const startTime = performance.now();
 
     try {
-      // Step 1: Evaluate login with andrors API
-      let fingerprint = activePreset.deviceFingerprint;
+      // 1. Generate client fingerprint
+      let fingerprint = 'fp_browser_client';
       try {
-        if (typeof window !== 'undefined' && activePreset.id === 'normal') {
+        if (typeof window !== 'undefined') {
           fingerprint = await generateEnhancedFingerprint();
         }
       } catch {}
 
+      // 2. Solve Proof-of-Work challenge
+      let powChallenge = generateChallenge(email.trim().toLowerCase() || 'anonymous');
+      let powNonce = 0;
+      let powSolution = '';
+      try {
+        const solved = await solvePow(powChallenge);
+        if (solved) {
+          powNonce = solved.nonce;
+          powSolution = solved.solution;
+        }
+      } catch {}
+
+      // 3. Evaluate continuous risk with andrors API
       const verifyResponse = await fetch('/api/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: email.trim().toLowerCase(),
-          ipAddress: activePreset.ipAddress,
+          ipAddress: 'auto',
           deviceFingerprint: fingerprint,
-          userAgent: activePreset.userAgent || window.navigator.userAgent,
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Mozilla/5.0',
           timestamp: new Date().toISOString(),
+          powChallenge,
+          powNonce,
+          powSolution,
         }),
       });
 
@@ -159,17 +109,17 @@ export default function LoginPage() {
       const speed = Math.round(performance.now() - startTime);
       setEvalSpeed(Math.max(speed, 12));
 
-      const outcome = (verifyData.recommendation as 'allow' | 'monitor' | 'challenge') || activePreset.expectedOutcome;
+      const outcome = (verifyData.recommendation as 'allow' | 'monitor' | 'challenge') || 'allow';
       setResultOutcome(outcome);
       setEvaluationResult({
-        score: verifyData.riskScore ?? (activePreset.expectedOutcome === 'allow' ? 0 : activePreset.expectedOutcome === 'monitor' ? 35 : 75),
+        score: verifyData.riskScore ?? 0,
         recommendation: outcome,
-        factors: verifyData.factors || (activePreset.expectedOutcome === 'allow' ? [] : activePreset.expectedOutcome === 'monitor' ? ['new_device', 'new_ip'] : ['unusual_location', 'bot_signals']),
+        factors: verifyData.factors || [],
         explanation: verifyData.explanation || 'Evaluated in real-time by andrors engine.',
         speedMs: Math.max(speed, 12),
       });
 
-      // Step 2: Authenticate with Supabase
+      // 4. Authenticate with Supabase
       const supabase = getSupabaseBrowserClient();
 
       if (authTab === 'sign_in') {
@@ -180,7 +130,7 @@ export default function LoginPage() {
 
         if (data?.user) {
           setUserSession(data.user);
-        } else if (error && activePreset.id === 'normal' && !email.includes('@company.com')) {
+        } else if (error) {
           setLoading(false);
           setErrorMessage(error.message);
           return;
@@ -215,13 +165,9 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       setLoading(false);
-      setResultOutcome(activePreset.expectedOutcome);
+      setResultOutcome('allow');
       setEvalSpeed(14);
-      if (activePreset.expectedOutcome === 'challenge') {
-        setViewState('challenge');
-      } else {
-        setViewState('dashboard');
-      }
+      setViewState('dashboard');
     }
   };
 
@@ -252,6 +198,7 @@ export default function LoginPage() {
       await supabase.auth.signOut();
       setUserSession(null);
     } catch {}
+    resetBehavioralState();
     setViewState('form');
     setSuccessNotice('You have been signed out.');
   };
@@ -262,7 +209,7 @@ export default function LoginPage() {
         <title>Sign In — andrors</title>
         <meta
           name="description"
-          content="Fast, secure, frictionless authentication powered by andrors."
+          content="Fast, secure, frictionless authentication powered by andrors continuous risk engine."
         />
       </Head>
 
@@ -277,51 +224,36 @@ export default function LoginPage() {
             <span className="text-xl font-extrabold tracking-[-0.04em]">andrors</span>
           </Link>
 
-          <Link
-            href="/"
-            className="text-xs font-semibold text-[#6b6a65] hover:text-[#0086C3] no-underline transition-colors flex items-center gap-1.5"
-          >
-            <i className="fa-solid fa-arrow-left text-[10px]" />
-            <span>Back to Overview</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/sandbox"
+              className="text-xs font-semibold text-[#0086C3] bg-[#0086C3]/10 hover:bg-[#0086C3]/20 border border-[#0086C3]/20 px-3.5 py-1.5 rounded-lg no-underline transition-all flex items-center gap-1.5"
+            >
+              <i className="fa-solid fa-flask text-[11px]" />
+              <span>Threat Laboratory</span>
+            </Link>
+          </div>
         </header>
 
         {/* Center Container */}
         <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-[480px] w-full mx-auto">
           
-          {/* Quick Scenario Pills (Clean, intuitive demo buttons) */}
-          <div className="w-full mb-5">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6b6a65]">
-                Try a Demo Scenario:
-              </span>
-              <span className="text-[11px] text-[#0086C3] font-medium">
-                {activePreset.badge}
-              </span>
+          {/* Top Developer Workbench Notice Banner */}
+          <div className="w-full mb-5 p-3 rounded-xl bg-white/70 border border-[rgba(20,20,20,0.06)] shadow-xs flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-[#6b6a65]">
+              <i className="fa-solid fa-shield-halved text-[#0086C3]" />
+              <span>Testing threat vectors &amp; telemetry?</span>
             </div>
-
-            <div className="grid grid-cols-4 gap-1.5 p-1 bg-black/5 rounded-lg border border-[rgba(20,20,20,0.06)]">
-              {DEMO_PRESETS.map((p) => {
-                const isSelected = activePreset.id === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleSelectPreset(p)}
-                    className={`py-1.5 px-2 rounded-md text-xs font-semibold tracking-[-0.01em] transition-all cursor-pointer truncate ${
-                      isSelected
-                        ? 'bg-[#141414] text-white shadow-sm'
-                        : 'bg-transparent text-[#6b6a65] hover:text-[#141414] hover:bg-black/5'
-                    }`}
-                  >
-                    {p.name}
-                  </button>
-                );
-              })}
-            </div>
+            <Link
+              href="/sandbox"
+              className="text-xs font-bold text-[#0086C3] hover:underline no-underline flex items-center gap-1"
+            >
+              <span>Threat Lab</span>
+              <i className="fa-solid fa-arrow-right text-[9px]" />
+            </Link>
           </div>
 
-          {/* MAIN CARD */}
+          {/* MAIN AUTH CARD */}
           <div className="w-full bg-white border border-[rgba(20,20,20,0.08)] rounded-2xl p-7 sm:p-8 shadow-sm">
             
             {/* VIEW 1: SIGN IN / SIGN UP FORM */}
@@ -331,7 +263,10 @@ export default function LoginPage() {
                 <div className="flex border-b border-[rgba(20,20,20,0.08)] mb-6">
                   <button
                     type="button"
-                    onClick={() => setAuthTab('sign_in')}
+                    onClick={() => {
+                      setAuthTab('sign_in');
+                      setErrorMessage(null);
+                    }}
                     className={`pb-3 text-sm font-bold tracking-[-0.02em] transition-colors cursor-pointer relative ${
                       authTab === 'sign_in' ? 'text-[#141414]' : 'text-[#96948f] hover:text-[#141414]'
                     }`}
@@ -344,7 +279,10 @@ export default function LoginPage() {
 
                   <button
                     type="button"
-                    onClick={() => setAuthTab('sign_up')}
+                    onClick={() => {
+                      setAuthTab('sign_up');
+                      setErrorMessage(null);
+                    }}
                     className={`pb-3 ml-6 text-sm font-bold tracking-[-0.02em] transition-colors cursor-pointer relative ${
                       authTab === 'sign_up' ? 'text-[#141414]' : 'text-[#96948f] hover:text-[#141414]'
                     }`}
@@ -384,7 +322,7 @@ export default function LoginPage() {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
+                        placeholder="name@company.com"
                         required
                         className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-[#f9f8f5] border border-[rgba(20,20,20,0.12)] text-sm text-[#141414] focus:outline-none focus:bg-white focus:border-[#0086C3] focus:ring-1 focus:ring-[#0086C3] transition-all"
                       />
@@ -417,7 +355,7 @@ export default function LoginPage() {
                     </div>
                   </div>
 
-                  {/* Remember Me */}
+                  {/* Remember Me & Forgot Password */}
                   <div className="flex items-center justify-between pt-1">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                       <input
@@ -447,7 +385,7 @@ export default function LoginPage() {
                     {loading ? (
                       <>
                         <i className="fa-solid fa-circle-notch fa-spin text-sm" />
-                        <span>Verifying...</span>
+                        <span>Verifying Security Posture...</span>
                       </>
                     ) : (
                       <>
@@ -458,15 +396,15 @@ export default function LoginPage() {
                   </button>
                 </form>
 
-                {/* Footer Security Badge */}
+                {/* Footer Security Guarantee */}
                 <div className="mt-6 pt-4 border-t border-[rgba(20,20,20,0.06)] flex items-center justify-center gap-1.5 text-xs text-[#96948f]">
                   <i className="fa-solid fa-shield-check text-[#0086C3]" />
-                  <span>Continuous protection by andrors</span>
+                  <span>Continuous protection by andrors engine</span>
                 </div>
               </div>
             )}
 
-            {/* VIEW 2: STEP-UP VERIFICATION (WHEN UNUSUAL TRAVEL OR BOT DETECTED) */}
+            {/* VIEW 2: STEP-UP VERIFICATION (WHEN RISK ELEVATED) */}
             {viewState === 'challenge' && (
               <div className="text-center py-2 animate-in fade-in zoom-in-95 duration-200">
                 <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto mb-4">
@@ -474,10 +412,11 @@ export default function LoginPage() {
                 </div>
 
                 <h2 className="text-lg font-extrabold tracking-[-0.03em] text-[#141414]">
-                  Quick Verification Required
+                  Security Verification Required
                 </h2>
+                
                 {/* Score & Triggered Signal Tag */}
-                <div className="p-3 bg-amber-50/80 rounded-lg border border-amber-200/60 max-w-[340px] mx-auto mb-5 text-xs text-left space-y-1">
+                <div className="p-3 bg-amber-50/80 rounded-lg border border-amber-200/60 max-w-[340px] mx-auto mb-3 text-xs text-left space-y-1">
                   <div className="flex items-center justify-between font-semibold">
                     <span className="text-[#6b6a65]">Calculated Risk Score:</span>
                     <span className="font-mono text-amber-900 font-bold">
@@ -485,7 +424,7 @@ export default function LoginPage() {
                     </span>
                   </div>
                   <div className="text-[11px] text-[#6b6a65]">
-                    <span>Reason: </span>
+                    <span>Signals: </span>
                     <span className="font-medium text-[#141414]">
                       {evaluationResult?.factors && evaluationResult.factors.length > 0
                         ? evaluationResult.factors.map(f => f.replace('_', ' ')).join(', ')
@@ -495,7 +434,7 @@ export default function LoginPage() {
                 </div>
 
                 <p className="text-xs text-[#6b6a65] mb-4 leading-relaxed max-w-[340px] mx-auto">
-                  Please enter the 6-digit code sent to <strong>{email}</strong> to continue.
+                  Please enter the 6-digit verification code sent to <strong>{email}</strong>.
                 </p>
 
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
@@ -535,7 +474,7 @@ export default function LoginPage() {
                       </>
                     ) : (
                       <>
-                        <span>Confirm & Sign In</span>
+                        <span>Confirm &amp; Sign In</span>
                         <i className="fa-solid fa-arrow-right text-xs" />
                       </>
                     )}
@@ -560,7 +499,7 @@ export default function LoginPage() {
                 </div>
 
                 <h2 className="text-xl font-extrabold tracking-[-0.04em] text-[#141414]">
-                  Welcome back, {userSession ? userSession.email?.split('@')[0] : 'Alex'}!
+                  Welcome back, {userSession ? userSession.email?.split('@')[0] : 'Developer'}!
                 </h2>
                 
                 <p className="text-xs text-[#6b6a65] mt-1 mb-5">
@@ -579,7 +518,7 @@ export default function LoginPage() {
                   <div className="flex items-center justify-between">
                     <span>Calculated Risk Score:</span>
                     <span className="font-mono font-bold text-[#141414]">
-                      {evaluationResult?.score ?? (resultOutcome === 'allow' ? 0 : 35)} / 100
+                      {evaluationResult?.score ?? 0} / 100
                     </span>
                   </div>
 
@@ -605,7 +544,7 @@ export default function LoginPage() {
 
                   <div className="flex items-center justify-between">
                     <span>Account:</span>
-                    <span className="font-medium text-[#141414]">{email}</span>
+                    <span className="font-medium text-[#141414]">{email || 'Authenticated User'}</span>
                   </div>
                 </div>
 
@@ -616,14 +555,15 @@ export default function LoginPage() {
                     className="w-full py-2.5 px-4 bg-[#141414] hover:bg-[#0086C3] text-white font-bold text-xs rounded-lg tracking-[-0.01em] transition-colors cursor-pointer flex items-center justify-center gap-2"
                   >
                     <i className="fa-solid fa-rotate-left text-xs" />
-                    <span>Sign Out & Try Again</span>
+                    <span>Sign Out</span>
                   </button>
 
                   <Link
-                    href="/"
-                    className="w-full py-2 px-4 bg-transparent border border-[rgba(20,20,20,0.08)] hover:bg-black/5 text-[#6b6a65] font-semibold text-xs rounded-lg tracking-[-0.01em] transition-colors no-underline flex items-center justify-center gap-1.5"
+                    href="/sandbox"
+                    className="w-full py-2 px-4 bg-transparent border border-[rgba(20,20,20,0.08)] hover:bg-black/5 text-[#0086C3] font-semibold text-xs rounded-lg tracking-[-0.01em] transition-colors no-underline flex items-center justify-center gap-1.5"
                   >
-                    <span>Return to Homepage</span>
+                    <i className="fa-solid fa-flask text-xs" />
+                    <span>Open Threat Laboratory</span>
                   </Link>
                 </div>
               </div>
@@ -631,16 +571,16 @@ export default function LoginPage() {
 
           </div>
 
-          {/* Simple Bottom Benefit Notice */}
+          {/* Simple Bottom Notice */}
           <div className="mt-8 text-center text-xs text-[#6b6a65] max-w-[380px] leading-relaxed">
-            <span className="font-semibold text-[#141414]">Zero CAPTCHAs, Zero SMS delays.</span> Legitimate users log in instantly while threats are stopped automatically.
+            <span className="font-semibold text-[#141414]">Zero CAPTCHAs, Zero SMS delays.</span> Legitimate users log in instantly while threats are challenged automatically.
           </div>
 
         </main>
 
         {/* Minimal Footer */}
         <footer className="py-4 px-6 text-center text-xs text-[#96948f]">
-          © {new Date().getFullYear()} andrors. All rights reserved.
+          © {new Date().getFullYear()} andrors Continuous Authentication Engine.
         </footer>
 
       </div>

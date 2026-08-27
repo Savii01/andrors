@@ -533,9 +533,17 @@ export default function Home() {
           <div className="flex items-center gap-3 sm:gap-4">
             <Link
               href="/login"
-              className="bg-[#141414] text-white border-none rounded px-4 py-2 text-sm font-semibold tracking-[-0.01em] cursor-pointer btn-lift hover:bg-[#0086C3] transition-colors hidden sm:inline-flex items-center gap-1.5 no-underline"
+              className="text-sm font-semibold tracking-[-0.01em] text-[#141414] hover:text-[#0086C3] transition-colors px-2 py-1 no-underline hidden sm:inline-block"
             >
-              <span>Try Login Demo</span>
+              Sign In
+            </Link>
+
+            <Link
+              href="/sandbox"
+              className="bg-[#141414] text-white border-none rounded px-3.5 py-2 text-sm font-semibold tracking-[-0.01em] cursor-pointer btn-lift hover:bg-[#0086C3] transition-colors hidden sm:inline-flex items-center gap-1.5 no-underline"
+            >
+              <i className="fa-solid fa-flask text-xs text-[#0086C3]" />
+              <span>Open Threat Lab</span>
               <i className="fa-solid fa-arrow-right text-xs" />
             </Link>
 
@@ -721,15 +729,24 @@ export default function Home() {
         </div>
 
         {/* Drawer Footer Actions */}
-        <div className="p-6 border-t border-white/10 space-y-3 bg-[#0e0e10]">
-          <a
+        <div className="p-6 border-t border-white/10 space-y-2.5 bg-[#0e0e10]">
+          <Link
+            href="/sandbox"
+            onClick={() => setIsSidebarOpen(false)}
+            className="w-full py-2.5 px-4 bg-[#0086C3] hover:bg-[#0074a8] text-white font-bold text-sm rounded-md tracking-[-0.01em] flex items-center justify-center gap-2 cursor-pointer transition-colors no-underline shadow-lg"
+          >
+            <i className="fa-solid fa-flask text-xs" />
+            <span>Open Threat Laboratory</span>
+          </Link>
+
+          <Link
             href="/login"
             onClick={() => setIsSidebarOpen(false)}
-            className="w-full py-2.5 px-4 bg-[#141414] hover:bg-[#0086C3] text-white font-bold text-sm rounded-md tracking-[-0.01em] flex items-center justify-center gap-2 cursor-pointer transition-colors no-underline border border-white/10"
+            className="w-full py-2.5 px-4 bg-[#141414] hover:bg-white/10 text-white font-bold text-sm rounded-md tracking-[-0.01em] flex items-center justify-center gap-2 cursor-pointer transition-colors no-underline border border-white/10"
           >
             <i className="fa-solid fa-arrow-right-to-bracket text-xs" />
-            <span>Try Login Demo</span>
-          </a>
+            <span>Sign In to Dashboard</span>
+          </Link>
 
           <button
             onClick={() => {
@@ -1088,6 +1105,51 @@ export default function Home() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Visual Architecture Decision Pipeline */}
+                  <div className="pt-6 border-t border-[rgba(20,20,20,0.06)]">
+                    <div className="text-xs font-bold uppercase tracking-wider text-[#6b6a65] mb-3 flex items-center justify-between">
+                      <span>Signal-to-Decision Pipeline (Sub-15ms Execution)</span>
+                      <span className="text-[#0086C3] font-mono text-[11px]">POST /api/verify</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-center text-xs">
+                      {/* Step 1 */}
+                      <div className="p-3 rounded-lg bg-white border border-[rgba(20,20,20,0.08)] flex flex-col justify-between space-y-1 shadow-2xs">
+                        <div className="text-[10px] font-mono text-[#0086C3] font-bold">01. INGESTION</div>
+                        <div className="font-bold text-[#141414]">Multi-Signal Layer</div>
+                        <div className="text-[10px] text-[#6b6a65]">Device, IP, &amp; Biometrics</div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="p-3 rounded-lg bg-white border border-[rgba(20,20,20,0.08)] flex flex-col justify-between space-y-1 shadow-2xs">
+                        <div className="text-[10px] font-mono text-purple-600 font-bold">02. CONTINUITY</div>
+                        <div className="font-bold text-[#141414]">Identity Graph</div>
+                        <div className="text-[10px] text-[#6b6a65]">Known Device &amp; Velocity</div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="p-3 rounded-lg bg-white border border-[rgba(20,20,20,0.08)] flex flex-col justify-between space-y-1 shadow-2xs">
+                        <div className="text-[10px] font-mono text-indigo-600 font-bold">03. REPUTATION</div>
+                        <div className="font-bold text-[#141414]">ASN Intelligence</div>
+                        <div className="text-[10px] text-[#6b6a65]">135+ CIDRs, Tor &amp; Proxies</div>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="p-3 rounded-lg bg-white border border-[rgba(20,20,20,0.08)] flex flex-col justify-between space-y-1 shadow-2xs">
+                        <div className="text-[10px] font-mono text-amber-600 font-bold">04. SCORING</div>
+                        <div className="font-bold text-[#141414]">Risk Scorer Engine</div>
+                        <div className="text-[10px] text-[#6b6a65]">10 Weighted Factors</div>
+                      </div>
+
+                      {/* Step 5 */}
+                      <div className="p-3 rounded-lg bg-[#141416] text-white border border-white/10 flex flex-col justify-between space-y-1 shadow-sm">
+                        <div className="text-[10px] font-mono text-emerald-400 font-bold">05. OUTCOME</div>
+                        <div className="font-bold text-white">TRUST / CHALLENGE</div>
+                        <div className="text-[10px] text-white/60">0-Friction or Step-Up</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1204,23 +1266,23 @@ export default function Home() {
                   {/* 3 Phases Timeline with FA Icons */}
                   <div className="space-y-6">
                     
-                    {/* Milestone 1 (Immediate Next) */}
+                    {/* Milestone 1 (Completed & Live) */}
                     <div className="flex items-start gap-4">
-                      <div className="w-8 h-8 rounded-full bg-[#0086C3] text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 shadow-sm">
-                        <i className="fa-solid fa-rocket" />
+                      <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 shadow-sm">
+                        <i className="fa-solid fa-check" />
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <h4 className="text-base font-bold tracking-[-0.04em] text-[#141414]">
                             Milestone 1: Enterprise Developer Threat Laboratory
                           </h4>
-                          <span className="inline-flex items-center gap-1.5 text-[10px] uppercase font-bold px-2 py-0.5 bg-sky-100 text-sky-800 rounded">
-                            <span>In Progress</span>
-                            <i className="fa-solid fa-bolt text-sky-600 text-[10px]" />
+                          <span className="inline-flex items-center gap-1.5 text-[10px] uppercase font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">
+                            <span>Live in Production</span>
+                            <i className="fa-solid fa-circle-check text-emerald-600 text-[10px]" />
                           </span>
                         </div>
                         <p className="text-xs text-[#6b6a65] leading-relaxed tracking-[-0.01em]">
-                          Dedicated <code className="bg-gray-100 px-1 py-0.5 rounded text-[11px]">/sandbox</code> endpoint with interactive attack simulation console. Multi-tenant API key management with usage dashboards, rate limits per key, and team-level threat visibility.
+                          Dedicated <Link href="/sandbox" className="font-bold text-[#0086C3] underline">/sandbox</Link> threat vector simulator with live telemetry, sub-15ms evaluation meter, and dynamic cURL / Node / Python code export.
                         </p>
                       </div>
                     </div>
