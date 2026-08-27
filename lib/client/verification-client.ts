@@ -4,6 +4,14 @@
  */
 
 import { generateDeviceFingerprint } from '../fingerprint/device-fingerprint';
+import {
+  startBehavioralCollection,
+  stopBehavioralCollection,
+  collectBehavioralPayload,
+  captureSubmitTrust,
+} from '../fingerprint/behavioral-dynamics';
+import { generateChallenge, solvePow } from '../crypto/pow-challenge';
+import { detectWebrtcIp } from '../fingerprint/webrtc-leak';
 
 export interface VerificationRequest {
   userId: string;
@@ -24,6 +32,29 @@ export interface VerificationResponse {
 }
 
 /**
+ * Start passive behavioral collection.
+ * Call on form mount (useEffect).
+ */
+export { startBehavioralCollection, stopBehavioralCollection, captureSubmitTrust };
+
+/**
+ * Generate a PoW challenge and solve it in the browser.
+ * Returns the fields to attach to the verify request.
+ */
+export async function preparePowProof(userId: string) {
+  const challenge = generateChallenge(userId);
+  const result = await solvePow(challenge);
+  if (!result) return null;
+  return { powChallenge: result.challenge, powNonce: result.nonce, powSolution: result.solution };
+}
+
+/**
+ * Detect real IP via WebRTC (async, non-blocking).
+ * Returns the candidate IP or null.
+ */
+export { detectWebrtcIp };
+
+/**
  * Verify a login attempt
  * Call this before allowing user to authenticate
  */
@@ -39,14 +70,29 @@ export async function verifyLogin(
     const userAgent = request.userAgent || 
       (typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown');
 
+    // Collect behavioral payload
+    const behavioral = collectBehavioralPayload();
+
+    // Prepare PoW proof
+    let powProof = null;
+    try {
+      powProof = await preparePowProof(request.userId);
+    } catch {}
+
     // Prepare request payload
-    const payload = {
+    const payload: Record<string, unknown> = {
       userId: request.userId,
       ipAddress: request.ipAddress || 'auto', // Server will detect
       deviceFingerprint,
       userAgent,
       timestamp: request.timestamp || new Date().toISOString(),
+      behavioralIsTrusted: behavioral.isTrusted,
+      behavioralIsHumanDynamics: behavioral.isHumanDynamics,
     };
+
+    if (powProof) {
+      Object.assign(payload, powProof);
+    }
 
     // Call API
     const response = await fetch('/api/verify', {

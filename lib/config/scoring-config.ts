@@ -13,6 +13,9 @@ export interface ScoringWeights {
   botSignals: number;
   rapidRequests: number;
   vpnProxy: number;
+  botDynamics: number;
+  powFailed: number;
+  canaryTarget: number;
 }
 
 export interface RiskThresholds {
@@ -48,6 +51,9 @@ export function getScoringConfig(): ScoringConfig {
       botSignals: parseInt(process.env.RISK_WEIGHT_BOT_SIGNALS || '25', 10),
       rapidRequests: parseInt(process.env.RISK_WEIGHT_RAPID_REQUESTS || '20', 10),
       vpnProxy: parseInt(process.env.RISK_WEIGHT_VPN_PROXY || defaultVpnWeight, 10),
+      botDynamics: parseInt(process.env.RISK_WEIGHT_BOT_DYNAMICS || '25', 10),
+      powFailed: parseInt(process.env.RISK_WEIGHT_POW_FAILED || '35', 10),
+      canaryTarget: parseInt(process.env.RISK_WEIGHT_CANARY_TARGET || '100', 10),
     },
     thresholds: {
       monitor: parseInt(process.env.RISK_THRESHOLD_MONITOR || '21', 10),

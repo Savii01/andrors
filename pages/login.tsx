@@ -3,6 +3,12 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { getSupabaseBrowserClient } from '@/lib/client/supabase-browser';
 import { generateEnhancedFingerprint } from '@/lib/fingerprint/device-fingerprint';
+import {
+  startBehavioralCollection,
+  stopBehavioralCollection,
+  captureSubmitTrust,
+  resetBehavioralState,
+} from '@/lib/fingerprint/behavioral-dynamics';
 import { User } from '@supabase/supabase-js';
 
 interface EvaluationResult {
@@ -102,6 +108,12 @@ export default function LoginPage() {
     } catch {}
   }, []);
 
+  // Start/stop passive behavioral collection
+  useEffect(() => {
+    startBehavioralCollection();
+    return () => stopBehavioralCollection();
+  }, []);
+
   const handleSelectPreset = (preset: ScenarioPreset) => {
     setActivePreset(preset);
     setEmail(preset.email);
@@ -110,10 +122,12 @@ export default function LoginPage() {
     setSuccessNotice(null);
     setViewState('form');
     setOtpCode(['', '', '', '', '', '']);
+    resetBehavioralState();
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    captureSubmitTrust(e);
     setLoading(true);
     setErrorMessage(null);
     setSuccessNotice(null);

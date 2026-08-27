@@ -9,6 +9,7 @@ import {
 import { calculateRiskScore, generateExplanation, RiskInput } from '@/lib/scoring/risk-scorer';
 import { getLocationFromIP, isVpnOrProxy, initializeGeoIP } from '@/lib/geo/ip-intelligence';
 import { LoginAttempt } from '@/lib/database/supabase-client';
+import { verifyPow } from '@/lib/crypto/pow-challenge';
 
 // Initialize GeoIP on module load
 let geoInitialized = false;
@@ -19,12 +20,27 @@ async function ensureGeoInitialized() {
   }
 }
 
+// Canary / honeypot usernames — attacking these triggers an immediate hard block
+const CANARY_EMAILS = new Set([
+  'admin_backup@company.com',
+  'root@company.com',
+  'test_canary@andrors.io',
+]);
+
 interface VerifyRequest {
   userId: string;
   ipAddress: string;
   deviceFingerprint: string;
   userAgent: string;
   timestamp?: string;
+
+  // Phase 2 fields
+  behavioralIsTrusted?: boolean;
+  behavioralIsHumanDynamics?: boolean;
+  powChallenge?: string;
+  powNonce?: number;
+  powSolution?: string;
+  webrtcCandidateIp?: string | null;
 }
 
 interface VerifyResponse {
@@ -58,7 +74,12 @@ export default async function handler(
 
   try {
     // Validate request body
-    const { userId, ipAddress, deviceFingerprint, userAgent, timestamp }: VerifyRequest = req.body;
+    const {
+      userId, ipAddress, deviceFingerprint, userAgent, timestamp,
+      behavioralIsTrusted, behavioralIsHumanDynamics,
+      powChallenge, powNonce, powSolution,
+      webrtcCandidateIp,
+    }: VerifyRequest = req.body;
 
     if (!userId || !ipAddress || !deviceFingerprint || !userAgent) {
       return res.status(400).json({
@@ -71,6 +92,19 @@ export default async function handler(
         error: 'userId, ipAddress, deviceFingerprint, and userAgent are required',
       });
     }
+
+    // Canary / honeypot detection — instant hard block
+    const isCanaryUser = CANARY_EMAILS.has(userId.toLowerCase());
+
+    // Server-side PoW verification
+    let powValid: boolean | undefined;
+    if (powChallenge && powNonce !== undefined && powSolution) {
+      powValid = verifyPow(powChallenge, powNonce, powSolution);
+    } else if (powChallenge) {
+      powValid = false; // partial — missing solution
+    }
+    // If no powChallenge provided at all, we don't penalize (graceful fallback for existing clients)
+    // To enforce PoW, set powValid = false when !powChallenge
 
     // Parse timestamp or use current time
     const loginTimestamp = timestamp ? new Date(timestamp) : new Date();
@@ -110,6 +144,13 @@ export default async function handler(
       recentAttemptCount: recentAttempts.length,
       userNormalLoginHours: normalLoginHours,
       isVpnOrProxy: isVpn,
+
+      // Phase 2 signals
+      isHumanDynamics: behavioralIsHumanDynamics,
+      isTrusted: behavioralIsTrusted,
+      powValid,
+      isCanaryUser,
+      webrtcCandidateIp,
     };
 
     // Calculate risk score

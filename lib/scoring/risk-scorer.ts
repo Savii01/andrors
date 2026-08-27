@@ -11,7 +11,10 @@ export type RiskFactor =
   | 'time_anomaly'
   | 'bot_signals'
   | 'rapid_requests'
-  | 'vpn_proxy';
+  | 'vpn_proxy'
+  | 'bot_dynamics'
+  | 'pow_failed'
+  | 'canary_target';
 
 /**
  * Input data for risk calculation
@@ -30,6 +33,13 @@ export interface RiskInput {
   recentAttemptCount: number;
   userNormalLoginHours: number[];
   isVpnOrProxy: boolean;
+
+  // Phase 2 signals
+  isHumanDynamics?: boolean;
+  isTrusted?: boolean;
+  powValid?: boolean;
+  isCanaryUser?: boolean;
+  webrtcCandidateIp?: string | null;
 }
 
 /**
@@ -56,6 +66,9 @@ export function calculateRiskScore(input: RiskInput, config?: ScoringConfig): Ri
     bot_signals: 0,
     rapid_requests: 0,
     vpn_proxy: 0,
+    bot_dynamics: 0,
+    pow_failed: 0,
+    canary_target: 0,
   };
 
   let totalScore = 0;
@@ -113,6 +126,27 @@ export function calculateRiskScore(input: RiskInput, config?: ScoringConfig): Ri
       breakdown.vpn_proxy = vpnWeight;
       totalScore += vpnWeight;
     }
+  }
+
+  // Factor 8: Behavioral Dynamics — bot-like mouse/keystroke patterns or synthetic events
+  if (input.isHumanDynamics === false || input.isTrusted === false) {
+    factors.push('bot_dynamics');
+    breakdown.bot_dynamics = scoringConfig.weights.botDynamics;
+    totalScore += scoringConfig.weights.botDynamics;
+  }
+
+  // Factor 9: Proof-of-Work failure — missing or invalid PoW solution
+  if (input.powValid === false) {
+    factors.push('pow_failed');
+    breakdown.pow_failed = scoringConfig.weights.powFailed;
+    totalScore += scoringConfig.weights.powFailed;
+  }
+
+  // Factor 10: Canary / honeypot target — immediate hard block
+  if (input.isCanaryUser === true) {
+    factors.push('canary_target');
+    breakdown.canary_target = scoringConfig.weights.canaryTarget;
+    totalScore += scoringConfig.weights.canaryTarget;
   }
 
   // Cap score at 100
@@ -267,6 +301,9 @@ export function generateExplanation(result: RiskScore): string {
     bot_signals: 'bot-like behavior detected',
     rapid_requests: 'multiple rapid login attempts',
     vpn_proxy: 'commercial VPN or datacenter proxy detected',
+    bot_dynamics: 'non-human input dynamics (mouse/keyboard)',
+    pow_failed: 'proof-of-work challenge failed or missing',
+    canary_target: 'honeypot account targeted',
   };
 
   const descriptions = result.factors.map(f => factorDescriptions[f]).join(', ');
